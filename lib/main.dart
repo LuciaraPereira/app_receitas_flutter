@@ -1,6 +1,8 @@
-//NOME: Luciara Pereira
+// Integrante: Luciara Pereira
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const MyApp());
@@ -32,12 +34,35 @@ class TelaReceitas extends StatefulWidget {
 class _TelaReceitasState extends State<TelaReceitas> {
   final TextEditingController controlador = TextEditingController();
 
-  String pesquisa = '';
+  List<dynamic> receitas = [];
 
-  void pesquisar() {
-    setState(() {
-      pesquisa = controlador.text;
-    });
+  Future<void> buscarReceitas() async {
+    String pesquisa = controlador.text.trim();
+
+    if (pesquisa.isEmpty) {
+      setState(() {
+        receitas = [];
+      });
+      return;
+    }
+
+    final url = Uri.https(
+      'www.themealdb.com',
+      '/api/json/v1/1/search.php',
+      {'s': pesquisa},
+    );
+
+    final resposta = await http.get(url);
+
+    if (resposta.statusCode == 200) {
+      final dados = jsonDecode(resposta.body);
+
+      if (!mounted) return;
+
+      setState(() {
+        receitas = dados['meals'] ?? [];
+      });
+    }
   }
 
   @override
@@ -80,16 +105,39 @@ class _TelaReceitasState extends State<TelaReceitas> {
             const SizedBox(height: 15),
 
             ElevatedButton(
-              onPressed: pesquisar,
+              onPressed: buscarReceitas,
               child: const Text('Buscar receitas'),
             ),
 
             const SizedBox(height: 20),
 
-            Text(
-              pesquisa.isEmpty
-                  ? 'Digite o nome de uma receita.'
-                  : 'Você pesquisou: $pesquisa',
+            Expanded(
+              child: ListView.builder(
+                itemCount: receitas.length,
+                itemBuilder: (context, index) {
+                  final receita = receitas[index];
+
+                  return Card(
+                    child: ListTile(
+                      leading: Image.network(
+                        receita['strMealThumb'] ?? '',
+                        width: 70,
+                        height: 70,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.broken_image);
+                        },
+                      ),
+                      title: Text(
+                        receita['strMeal'] ?? '',
+                      ),
+                      subtitle: Text(
+                        receita['strCategory'] ?? '',
+                      ),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
@@ -97,4 +145,3 @@ class _TelaReceitasState extends State<TelaReceitas> {
     );
   }
 }
-
